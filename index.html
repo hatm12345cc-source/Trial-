@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRX | HUB - Secure Raw Generator</title>
+    <style>
+        :root {
+            --neon-red: #ff0000;
+            --midnight-blue: #001f3f;
+            --github-gray: #0d1117;
+        }
+
+        body {
+            background-color: var(--github-gray);
+            color: #c9d1d9;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* لوحة التحكم */
+        .admin-panel {
+            width: 95%;
+            max-width: 1100px;
+            background: var(--midnight-blue);
+            border: 2px solid var(--neon-red);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 0 30px var(--neon-red);
+            text-align: center;
+        }
+
+        textarea {
+            width: 100%;
+            height: 500px;
+            background: #010409;
+            color: #7ee787;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            resize: none;
+            outline: none;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        .raw-btn {
+            margin-top: 20px;
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            font-size: 22px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .raw-btn:hover { background: #2ea043; transform: scale(1.03); }
+
+        /* صفحة الـ Raw الوهمية */
+        #raw-view {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: white;
+            color: black;
+            font-family: monospace;
+            padding: 20px;
+            white-space: pre-wrap;
+            z-index: 10000;
+            overflow-y: auto;
+        }
+
+        .copy-box {
+            background: #161b22;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+            display: none;
+            border: 1px solid var(--neon-red);
+        }
+
+        #raw-link-display { color: #58a6ff; cursor: pointer; word-break: break-all; }
+    </style>
+</head>
+<body>
+
+    <!-- الجزء 1: لوحة تحكم TRX l HUB -->
+    <div id="panel" class="admin-panel">
+        <h1 style="color: var(--neon-red);">TRX | HUB - CONTROL</h1>
+        <textarea id="scriptInput" placeholder="ضع كودك هنا (يتحمل حتى 10,000 سطر)..."></textarea>
+        
+        <button class="raw-btn" onclick="generateSecureRaw()">
+            raw ✅
+        </button>
+
+        <div id="link-box" class="copy-box">
+            <p>تم توليد رابط Raw الحقيقي:</p>
+            <span id="raw-link-display" onclick="copyLink()"></span>
+            <p style="font-size: 12px; color: #8b949e;">(اضغط على الرابط للنسخ)</p>
+        </div>
+    </div>
+
+    <!-- الجزء 2: صفحة الـ Raw (التمويه) -->
+    <div id="raw-view"></div>
+
+    <script>
+        function generateSecureRaw() {
+            const code = document.getElementById('scriptInput').value;
+            if (!code.trim()) return alert("المربع فاضي!");
+
+            // إنشاء رمز عشوائي للرابط ليتغير كل مرة
+            const randomID = Math.random().toString(36).substring(2, 10);
+            const currentURL = window.location.href.split('?')[0];
+            const finalRawURL = `${currentURL}?raw=${randomID}`;
+
+            // إظهار رابط الـ Raw للمستخدم للنسخ
+            document.getElementById('link-box').style.display = 'block';
+            document.getElementById('raw-link-display').innerText = finalRawURL;
+
+            // إذا كان الرابط يحتوي على "raw"، يظهر التمويه
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('raw')) {
+                showTrollPage();
+            }
+        }
+
+        function showTrollPage() {
+            document.getElementById('panel').style.display = 'none';
+            const rawView = document.getElementById('raw-view');
+            rawView.style.display = 'block';
+            document.body.style.background = 'white';
+
+            // نص التمويه الذي طلبته
+            rawView.innerText = "-- [[ TRX | HUB SECURITY ]]\n" +
+                                "--بدري عليك تسرق السكربت + ياسكران السكربت مو مشفره هههههههههههه———\n" +
+                                "ههههههههههههه تبي تفك ؟ —\n\n" +
+                                "-- Real Source Trace ID: " + Math.random().toString(36).toUpperCase();
+        }
+
+        function copyLink() {
+            const link = document.getElementById('raw-link-display').innerText;
+            navigator.clipboard.writeText(link);
+            alert("تم نسخ رابط الـ Raw بنجاح!");
+        }
+
+        // تفعيل التمويه فوراً إذا فتح الرابط من الخارج
+        if (new URLSearchParams(window.location.search).has('raw')) {
+            showTrollPage();
+        }
+
+        // حماية منع الفحص
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.onkeydown = e => { if(e.keyCode == 123) return false; };
+    </script>
+</body>
+</html>
