@@ -1,0 +1,571 @@
+--  (نسخة جامدة  - مطورة)
+-- تصميم وتظبيط: 
+
+--[[--------------------------------------------------------------------------------
+  --انتضر 15 ثانيه وابداء الصمله يا صملاوي 
+----------------------------------------------------------------------------------]]
+-- Anti-AFK by مملكه الدراك
+local VirtualUser = game:GetService("VirtualUser")
+game:GetService("Players").LocalPlayer.Idled:Connect(function()
+   VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+   task.wait(1)
+   VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+   print("تم منع الطرد AFKبنجاح بواسطة   ")
+end)
+--[[
+ سكربت حماية شامل - من تطويرنا
+    يحتوي على: AntiAFK + AntiKick + AutoJump كل 15 دقيقة
+]]
+
+-- Anti-AFK
+task.spawn(function()
+    local vu = game:GetService("VirtualUser")
+    game:GetService("Players").LocalPlayer.Idled:Connect(function()
+        pcall(function()
+            vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            task.wait(1)
+            vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        end)
+    end)
+end)
+
+-- Anti-Kick (hookfunction)
+local oldKick
+oldKick = hookfunction(game.Players.LocalPlayer.Kick, function(self, ...)
+    warn("تم اعتراض محاولة طرد - الحماية شغالة بواسطتنا  ")
+    return nil
+end)
+
+-- Auto Jump كل 15 دقيقة
+task.spawn(function()
+    while true do
+        wait(900) -- 900 ثانية = 15 دقيقة
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            print("نطة تلقائية كل 15 دقيقة - بواسطتنا   ")
+        end
+    end
+end)
+
+-- رسالة نجاح
+print("تم تفعيل: AntiAFK + AntiKick + AutoJump - من تطويرنا")
+
+
+
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local gui = Instance.new("ScreenGui")
+gui.Parent = playerGui
+
+-- شاشة سوداء صغيرة في المنتصف
+local black = Instance.new("Frame", gui)
+black.Size = UDim2.new(0.8, 0, 0.4, 0) -- أصغر من الشاشة
+black.Position = UDim2.new(0.1, 0, 0.3, 0)
+black.BackgroundColor3 = Color3.new(0, 0, 0)
+black.BorderSizePixel = 0
+
+-- نص التحميل
+local loadingText = Instance.new("TextLabel", black)
+loadingText.Size = UDim2.new(1, 0, 1, 0)
+loadingText.BackgroundTransparency = 1
+loadingText.TextColor3 = Color3.new(0, 1, 0)
+loadingText.Text = "السكربت AFK حقوق الدراك انتضر 15 ثانيه وابداء الصمله يا صملاوي"
+loadingText.Font = Enum.Font.Code
+loadingText.TextScaled = true
+loadingText.TextWrapped = true
+
+wait(16)
+gui:Destroy()
+
+
+-- خدمات روبلوكس الأساسية اللي هنحتاجها
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local VirtualUser = game:GetService("VirtualUser")
+
+-- اللاعب بتاعنا
+local LocalPlayer = Players.LocalPlayer
+
+-- تظبيطات السكريبت
+local Config = {
+    ENABLED = true,
+    SCRIPT_TITLE = "نظام  الجامد  AFK",
+    AUTHOR_CREDIT = "سكربتنا  (بمساعده TRX )",
+    GUI = {
+        PRIMARY_COLOR = Color3.fromRGB(30, 30, 50),
+        SECONDARY_COLOR = Color3.fromRGB(50, 50, 80),
+        TEXT_COLOR_STATIC = Color3.fromRGB(220, 220, 255),
+        TEXT_COLOR_ACTIVE = Color3.fromRGB(100, 255, 100),
+        TEXT_COLOR_INACTIVE = Color3.fromRGB(255, 100, 100),
+        FONT = Enum.Font.GothamSemibold,
+        WINDOW_SIZE_NORMAL = UDim2.new(0, 320, 0, 180), -- الحجم العادي
+        WINDOW_SIZE_MINIMIZED = UDim2.new(0, 120, 0, 40), -- الحجم الصغنن
+        WINDOW_POSITION = UDim2.new(0.02, 0, 0.5, -90),
+        CORNER_RADIUS = 8,
+        BORDER_SIZE = 1,
+        BORDER_COLOR = Color3.fromRGB(70, 70, 100),
+        ANIMATING_TEXT_COLORS = {
+            Color3.fromRGB(180, 180, 255),
+            Color3.fromRGB(150, 220, 255),
+            Color3.fromRGB(200, 150, 255),
+            Color3.fromRGB(220, 200, 255),
+        },
+        ANIMATING_TEXT_SPEED = 2,
+        MINIMIZE_BUTTON_TEXT_MIN = "ـ", -- شكل زرار التصغير
+        MINIMIZE_BUTTON_TEXT_MAX = "ㅁ" -- شكل زرار التكبير
+    },
+    ANTI_AFK_METHODS = {
+        JUMP = { ENABLED = true, CHANCE = 0.6 },
+        RANDOM_WALK = { ENABLED = true, DURATION_MIN = 0.1, DURATION_MAX = 0.5, CHANCE = 0.3 },
+        CAMERA_PAN = { ENABLED = true, ANGLE_MIN = -5, ANGLE_MAX = 5, CHANCE = 0.1 }
+    },
+    ACTION_INTERVAL_MIN = 120,
+    ACTION_INTERVAL_MAX = 240,
+    DEBUG_MODE = false,
+}
+
+-- متغيرات حالة السكريبت
+local scriptActive = Config.ENABLED
+local timeActive = 0
+local lastActionTime = tick()
+local nextActionDelay = math.random(Config.ACTION_INTERVAL_MIN, Config.ACTION_INTERVAL_MAX)
+local guiElements = {}
+local currentAnimatingColorIndex = 1
+local guiMinimized = false -- الواجهة متصغرة ولا لأ
+
+local function debugLog(message)
+    if Config.DEBUG_MODE then
+        print("[Anti-AFK بتاع فارس المطور]: " .. tostring(message))
+    end
+end
+
+-- [[--------------------------------------------------------------------------------
+--   الحته بتاعة واجهة المستخدم الجامدة (GUI Module)
+----------------------------------------------------------------------------------]]
+local GUI_Manager = {}
+
+function GUI_Manager:CreateElement(elementType, properties)
+    local element = Instance.new(elementType)
+    for prop, value in pairs(properties) do
+        element[prop] = value
+    end
+    return element
+end
+
+function GUI_Manager:AnimateTextColor(label)
+    if not label or not label:IsA("TextLabel") then return end
+    if guiMinimized and label ~= guiElements.MinimizedTitleLabel then return end -- متعملش انيميشن لو الواجهة متصغرة إلا للعنوان الصغير
+
+    currentAnimatingColorIndex = (currentAnimatingColorIndex % #Config.GUI.ANIMATING_TEXT_COLORS) + 1
+    local targetColor = Config.GUI.ANIMATING_TEXT_COLORS[currentAnimatingColorIndex]
+    local originalColor = label.TextColor3
+
+    local tweenInfo = TweenInfo.new(Config.GUI.ANIMATING_TEXT_SPEED / 2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tween = TweenService:Create(label, tweenInfo, {TextColor3 = targetColor})
+    tween:Play()
+
+    tween.Completed:Connect(function()
+        if label.Parent and (not guiMinimized or label == guiElements.MinimizedTitleLabel) then -- نتأكد إن الواجهة لسه عايشة والسكريبت شغال أو ده العنوان الصغير
+            task.wait(Config.GUI.ANIMATING_TEXT_SPEED / 2)
+            if label.TextColor3 == targetColor then -- نعمل انيميشن تاني لو اللون متغيرش بسبب حاجة تانية
+                 GUI_Manager:AnimateTextColor(label)
+            end
+        else
+            label.TextColor3 = originalColor -- رجع اللون الأصلي لو الواجهة اتصغرت وهو مش العنوان الصغير
+        end
+    end)
+end
+
+function GUI_Manager:ToggleMinimize()
+    guiMinimized = not guiMinimized
+    debugLog("الواجهة بقت " .. (guiMinimized and "صغننة" or "كبيرة"))
+
+    if guiMinimized then
+        guiElements.MainFrame.Size = Config.GUI.WINDOW_SIZE_MINIMIZED
+        guiElements.MinimizeButton.Text = Config.GUI.MINIMIZE_BUTTON_TEXT_MAX
+        -- نخفي الحاجات الكبيرة ونظهر العنوان الصغير
+        guiElements.TitleLabel.Visible = false
+        guiElements.StatusLabel.Visible = false
+        guiElements.TimeActiveLabel.Visible = false
+        guiElements.ToggleButton.Visible = false
+        guiElements.AuthorLabel.Visible = false
+        guiElements.MinimizedTitleLabel.Visible = true
+        GUI_Manager:AnimateTextColor(guiElements.MinimizedTitleLabel) -- شغل انيميشن العنوان الصغير
+    else
+        guiElements.MainFrame.Size = Config.GUI.WINDOW_SIZE_NORMAL
+        guiElements.MinimizeButton.Text = Config.GUI.MINIMIZE_BUTTON_TEXT_MIN
+        -- نظهر الحاجات الكبيرة ونخفي العنوان الصغير
+        guiElements.TitleLabel.Visible = true
+        guiElements.StatusLabel.Visible = true
+        guiElements.TimeActiveLabel.Visible = true
+        guiElements.ToggleButton.Visible = true
+        guiElements.AuthorLabel.Visible = true
+        guiElements.MinimizedTitleLabel.Visible = false
+        -- نشغل الانيميشن للحاجات اللي كانت مخفية
+        GUI_Manager:AnimateTextColor(guiElements.TitleLabel)
+        GUI_Manager:AnimateTextColor(guiElements.TimeActiveLabel)
+    end
+end
+
+function GUI_Manager:Init()
+    debugLog("يلا بينا نبني الواجهة الأجدد...")
+
+    guiElements.ScreenGui = GUI_Manager:CreateElement("ScreenGui", {
+        Name = "FaresAntiAFK_GUI_Masry_Mطور",
+        Parent = LocalPlayer:FindFirstChildOfClass("PlayerGui") or game:GetService("CoreGui"),
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        ResetOnSpawn = false
+    })
+
+    guiElements.MainFrame = GUI_Manager:CreateElement("Frame", {
+        Name = "MainFrame",
+        Parent = guiElements.ScreenGui,
+        Size = Config.GUI.WINDOW_SIZE_NORMAL,
+        Position = Config.GUI.WINDOW_POSITION,
+        BackgroundColor3 = Config.GUI.PRIMARY_COLOR,
+        BorderColor3 = Config.GUI.BORDER_COLOR,
+        BorderSizePixel = Config.GUI.BORDER_SIZE,
+        Active = true,
+        Draggable = true,
+        Selectable = true,
+        Style = Enum.FrameStyle.RobloxRound,
+        ClipsDescendants = true
+    })
+
+    local UICorner = GUI_Manager:CreateElement("UICorner", {
+        Parent = guiElements.MainFrame,
+        CornerRadius = UDim.new(0, Config.GUI.CORNER_RADIUS)
+    })
+
+    guiElements.TitleLabel = GUI_Manager:CreateElement("TextLabel", {
+        Name = "TitleLabel",
+        Parent = guiElements.MainFrame,
+        Size = UDim2.new(1, -30, 0, 30), -- نصغر العرض شوية عشان زرار التصغير
+        Position = UDim2.new(0, 0, 0, 5),
+        BackgroundTransparency = 1,
+        Font = Config.GUI.FONT,
+        Text = Config.SCRIPT_TITLE,
+        TextColor3 = Config.GUI.TEXT_COLOR_STATIC,
+        TextSize = 18,
+        TextXAlignment = Enum.TextXAlignment.Center
+    })
+    GUI_Manager:AnimateTextColor(guiElements.TitleLabel)
+
+    -- عنوان صغير بيظهر لما الواجهة تتصغر
+    guiElements.MinimizedTitleLabel = GUI_Manager:CreateElement("TextLabel", {
+        Name = "MinimizedTitleLabel",
+        Parent = guiElements.MainFrame,
+        Size = UDim2.new(1, -30, 1, 0), -- ياخد عرض الفريم كله لما يكون صغير
+        Position = UDim2.new(0, 0, 0, 0),
+        BackgroundTransparency = 1,
+        Font = Config.GUI.FONT,
+        Text = "مملكه الدراك", -- اسم مختصر
+        TextColor3 = Config.GUI.TEXT_COLOR_STATIC,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        Visible = false -- بيبدأ مخفي
+    })
+
+    guiElements.StatusLabel = GUI_Manager:CreateElement("TextLabel", {
+        Name = "StatusLabel",
+        Parent = guiElements.MainFrame,
+        Size = UDim2.new(1, -20, 0, 25),
+        Position = UDim2.new(0, 10, 0, 40),
+        BackgroundTransparency = 1,
+        Font = Config.GUI.FONT,
+        Text = "الحالة: " .. (scriptActive and "شغال وزي الفل" or "واقف ومريح"),
+        TextColor3 = scriptActive and Config.GUI.TEXT_COLOR_ACTIVE or Config.GUI.TEXT_COLOR_INACTIVE,
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    guiElements.TimeActiveLabel = GUI_Manager:CreateElement("TextLabel", {
+        Name = "TimeActiveLabel",
+        Parent = guiElements.MainFrame,
+        Size = UDim2.new(1, -20, 0, 25),
+        Position = UDim2.new(0, 10, 0, 70),
+        BackgroundTransparency = 1,
+        Font = Config.GUI.FONT,
+        Text = "بقالك قد ايه يا كينج: 00:00:00",
+        TextColor3 = Config.GUI.TEXT_COLOR_STATIC,
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    GUI_Manager:AnimateTextColor(guiElements.TimeActiveLabel)
+
+    guiElements.ToggleButton = GUI_Manager:CreateElement("TextButton", {
+        Name = "ToggleButton",
+        Parent = guiElements.MainFrame,
+        Size = UDim2.new(0.8, 0, 0, 30),
+        Position = UDim2.new(0.1, 0, 0, 105),
+        BackgroundColor3 = Config.GUI.SECONDARY_COLOR,
+        BorderColor3 = Config.GUI.BORDER_COLOR,
+        BorderSizePixel = Config.GUI.BORDER_SIZE,
+        Font = Config.GUI.FONT,
+        Text = scriptActive and "اقفل يا عم الحاج" or "شغل يا ريس",
+        TextColor3 = Config.GUI.TEXT_COLOR_STATIC,
+        TextSize = 16,
+    })
+    local btnCorner = GUI_Manager:CreateElement("UICorner", { Parent = guiElements.ToggleButton, CornerRadius = UDim.new(0, Config.GUI.CORNER_RADIUS -2) })
+
+    guiElements.AuthorLabel = GUI_Manager:CreateElement("TextLabel", {
+        Name = "AuthorLabel",
+        Parent = guiElements.MainFrame,
+        Size = UDim2.new(1, 0, 0, 20),
+        Position = UDim2.new(0, 0, 1, -25),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.SourceSans,
+        Text = Config.AUTHOR_CREDIT,
+        TextColor3 = Color3.fromRGB(150,150,180),
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Center
+    })
+
+    -- زرار التصغير والتكبير
+    guiElements.MinimizeButton = GUI_Manager:CreateElement("TextButton", {
+        Name = "MinimizeButton",
+        Parent = guiElements.MainFrame,
+        Size = UDim2.new(0, 25, 0, 25),
+        Position = UDim2.new(1, -30, 0, 5), -- فوق على اليمين
+        BackgroundColor3 = Config.GUI.SECONDARY_COLOR,
+        BorderColor3 = Config.GUI.BORDER_COLOR,
+        BorderSizePixel = Config.GUI.BORDER_SIZE,
+        Font = Config.GUI.FONT,
+        Text = Config.GUI.MINIMIZE_BUTTON_TEXT_MIN,
+        TextColor3 = Config.GUI.TEXT_COLOR_STATIC,
+        TextSize = 18,
+    })
+    local minBtnCorner = GUI_Manager:CreateElement("UICorner", { Parent = guiElements.MinimizeButton, CornerRadius = UDim.new(0, Config.GUI.CORNER_RADIUS -4) })
+
+    guiElements.MinimizeButton.MouseButton1Click:Connect(GUI_Manager.ToggleMinimize)
+
+    guiElements.ToggleButton.MouseButton1Click:Connect(function()
+        scriptActive = not scriptActive
+        GUI_Manager:UpdateStatus()
+        if scriptActive then
+            debugLog("الولد شغل السكريبت بإيده.")
+            lastActionTime = tick()
+            nextActionDelay = math.random(Config.ACTION_INTERVAL_MIN, Config.ACTION_INTERVAL_MAX)
+            if not guiMinimized then -- لو الواجهة مش متصغرة، شغل الانيميشن
+                GUI_Manager:AnimateTextColor(guiElements.TitleLabel)
+                GUI_Manager:AnimateTextColor(guiElements.TimeActiveLabel)
+            else
+                GUI_Manager:AnimateTextColor(guiElements.MinimizedTitleLabel)
+            end
+        else
+            debugLog("الولد قفل السكربت بإيده.")
+        end
+    end)
+
+    debugLog("الواجهة الأجدد اتبنت خلاص.")
+    -- لو كانت الواجهة المفروض تبدأ متصغرة (لو عملنا تضابيط لاكذا بعدين)
+    if guiMinimized then
+        GUI_Manager:ToggleMinimize() -- شغلها مرة عشان تظبط الدنيا لو هتبدأ متصغرة
+    end
+end
+
+function GUI_Manager:UpdateStatus()
+    if guiElements.StatusLabel then
+        guiElements.StatusLabel.Text = "الحالة: " .. (scriptActive and "شغال وزي الفل" or "واقف ومريح")
+        guiElements.StatusLabel.TextColor3 = scriptActive and Config.GUI.TEXT_COLOR_ACTIVE or Config.GUI.TEXT_COLOR_INACTIVE
+    end
+    if guiElements.ToggleButton then
+        guiElements.ToggleButton.Text = scriptActive and "اقفل يا خوي " or "شغل يا شباب"
+    end
+end
+
+function GUI_Manager:UpdateTimeActive(seconds)
+    if guiElements.TimeActiveLabel and not guiMinimized then -- متحدثش الليبل الكبير لو الواجهة متصغرة
+        local hours = math.floor(seconds / 3600)
+        local minutes = math.floor((seconds % 3600) / 60)
+        local secs = math.floor(seconds % 60)
+        guiElements.TimeActiveLabel.Text = string.format("قاعد  قد وش يا صملاوي: %02d:%02d:%02d", hours, minutes, secs)
+    end
+    -- ممكن نضيف هنا تحديث لليبل صغير بيظهر لما الواجهة متصغرة لو عاوزين
+end
+
+function GUI_Manager:Destroy()
+    if guiElements.ScreenGui then
+        guiElements.ScreenGui:Destroy()
+        guiElements = {}
+        debugLog("مسحنا الواجهة خلاص.")
+    end
+end
+
+-- [[--------------------------------------------------------------------------------
+--   ذي حقت مخ السكربت اللي بيعمل الشغل كله (Core Logic Module)
+----------------------------------------------------------------------------------]]
+local AntiAFK_Logic = {}
+
+function AntiAFK_Logic:GetPlayerCharacter()
+    return LocalPlayer and LocalPlayer.Character
+end
+
+function AntiAFK_Logic:GetPlayerHumanoid()
+    local character = self:GetPlayerCharacter()
+    return character and character:FindFirstChildOfClass("Humanoid")
+end
+
+function AntiAFK_Logic:PerformJump()
+    local humanoid = self:GetPlayerHumanoid()
+    if humanoid and humanoid.Health > 0 and humanoid:GetState() ~= Enum.HumanoidStateType.Jumping then
+        debugLog("يلا نبداء نط نطة حلوة...")
+        humanoid.Jump = true
+        return true
+    end
+    return false
+end
+
+function AntiAFK_Logic:PerformRandomWalk()
+    local character = self:GetPlayerCharacter()
+    local humanoid = self:GetPlayerHumanoid()
+    if character and humanoid and humanoid.Health > 0 then
+        local walkDir = Vector3.new(math.random(-100, 100)/100, 0, math.random(-100, 100)/100).Unit
+        local duration = math.random(Config.ANTI_AFK_METHODS.RANDOM_WALK.DURATION_MIN * 10, Config.ANTI_AFK_METHODS.RANDOM_WALK.DURATION_MAX * 10) / 10
+        debugLog(string.format("يلا نتمشى شوية لمدة %.2f ثانية في مثل كذا %s", duration, tostring(walkDir)))
+        humanoid:Move(walkDir, false)
+        task.wait(duration)
+        humanoid:Move(Vector3.new(0,0,0), false)
+        return true
+    end
+    return false
+end
+
+function AntiAFK_Logic:PerformCameraPan()
+    local camera = workspace.CurrentCamera
+    if camera then
+        local currentCF = camera.CFrame
+        local angleX = math.rad(math.random(Config.ANTI_AFK_METHODS.CAMERA_PAN.ANGLE_MIN, Config.ANTI_AFK_METHODS.CAMERA_PAN.ANGLE_MAX))
+        local angleY = math.rad(math.random(Config.ANTI_AFK_METHODS.CAMERA_PAN.ANGLE_MIN, Config.ANTI_AFK_METHODS.CAMERA_PAN.ANGLE_MAX))
+        debugLog(string.format("هنلف الكاميرا لفة صغننة X: %.2f, Y: %.2f", math.deg(angleX), math.deg(angleY)))
+        camera.CFrame = currentCF * CFrame.Angles(angleX, angleY, 0)
+        return true
+    end
+    return false
+end
+
+function AntiAFK_Logic:ExecuteAntiAFKAction()
+    if not LocalPlayer or not LocalPlayer.Character or LocalPlayer.Character:FindFirstChildOfClass("Humanoid").Health <= 0 then
+        debugLog("اللاعب مو هنا أو ميت، مافيه اي شي حاجه.")
+        return
+    end
+
+    local methods = {}
+    local totalChance = 0
+    for method, props in pairs(Config.ANTI_AFK_METHODS) do
+        if props.ENABLED then
+            table.insert(methods, {name = method, chance = props.CHANCE})
+            totalChance = totalChance + props.CHANCE
+        end
+    end
+
+    if #methods == 0 then
+        debugLog("مافيه ولا طريقة anti-AFK شغالة يا شباب.")
+        return
+    end
+
+    local rand = math.random() * totalChance
+    local cumulativeChance = 0
+    local chosenMethod
+
+    for _, methodData in ipairs(methods) do
+        cumulativeChance = cumulativeChance + methodData.chance
+        if rand <= cumulativeChance then
+            chosenMethod = methodData.name
+            break
+        end
+    end
+
+    if not chosenMethod then chosenMethod = methods[1].name end
+
+    debugLog("الطريقة اللي اخترناها: " .. chosenMethod)
+    local success = false
+    if chosenMethod == "JUMP" then
+        success = self:PerformJump()
+    elseif chosenMethod == "RANDOM_WALK" then
+        success = self:PerformRandomWalk()
+    elseif chosenMethod == "CAMERA_PAN" then
+        success = self:PerformCameraPan()
+    end
+
+    if success then
+        debugLog("الحركة اتعملت  بتإمام.")
+    else
+        debugLog("الحركة ماسوت، فيه شي غلط.")
+    end
+end
+
+-- [[--------------------------------------------------------------------------------
+--   ذي بتاعة إدارة الأحداث واللوب الأساسي اللي بيفضل شغال (Main Loop & Event Management)
+----------------------------------------------------------------------------------]]
+local MainController = {}
+
+function MainController:Start()
+    debugLog("يلا نبداء نشغل السكربت الأجدد ذا...")
+    GUI_Manager:Init()
+
+    RunService.RenderStepped:Connect(function(deltaTime)
+        timeActive = timeActive + deltaTime -- العداد شغال على طول
+        GUI_Manager:UpdateTimeActive(timeActive) -- حدث الوقت في الواجهة على طول
+
+        if scriptActive then -- لو السكربت شغال، اعمل الحركات
+            if (tick() - lastActionTime) >= nextActionDelay then
+                if UserInputService:GetFocusedTextBox() == nil and UserInputService:IsKeyDown(Enum.KeyCode.LeftAlt) == false and UserInputService:IsKeyDown(Enum.KeyCode.RightAlt) == false then
+                    AntiAFK_Logic:ExecuteAntiAFKAction()
+                    lastActionTime = tick()
+                    nextActionDelay = math.random(Config.ACTION_INTERVAL_MIN, Config.ACTION_INTERVAL_MAX)
+                    debugLog("الحركة الي بتجي بعد " .. nextActionDelay .. " ثانية إن شاء الله.")
+                else
+                    debugLog("أجلنا الحركة عشان الولد بيكتب أو فاتح قايمة.")
+                    lastActionTime = tick()
+                end
+            end
+        end
+    end)
+
+    if LocalPlayer and LocalPlayer.Character then
+        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.Died:Connect(function()
+                debugLog("اللاعب مات يا يشباب!")
+            end)
+        end
+    end
+    Players.PlayerAdded:Connect(function(player)
+        if player == LocalPlayer and player.Character then
+             local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+             if humanoid then
+                humanoid.Died:Connect(function()
+                    debugLog("اللاعب مات يا يشباب!")
+                end)
+            end
+        end
+    end)
+
+    LocalPlayer.CharacterAdded:Connect(function(character)
+        debugLog("الكاركتر حق اللاعب رجع تاني.")
+        local humanoid = character:WaitForChild("Humanoid")
+        humanoid.Died:Connect(function()
+            debugLog("اللاعب مات ثاني (بعد ما رجع)!")
+        end)
+    end)
+
+    game:GetService("ScriptContext").Error:Connect(function(message, trace, scriptInstance)
+        if scriptInstance == script then
+            GUI_Manager:Destroy()
+        end
+    end)
+
+    debugLog("السكربت الاجدد وشغال بتمأم.")
+end
+
+-- يلا  نبدأ الحفلة المطورة
+MainController:Start()
+
+--[[--------------------------------------------------------------------------------
+  آخر السكربت يا يشباب (النسخة المطورة)
+----------------------------------------------------------------------------------]]
